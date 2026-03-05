@@ -21,6 +21,7 @@ export type NavAction =
   | { type: 'navigate'; url: string }
   | { type: 'activateSearch' }
   | { type: 'deactivateSearch' }
+  | { type: 'pendingG' }
   | { type: 'none' };
 
 export function handleNavKey(
@@ -28,9 +29,37 @@ export function handleNavKey(
   state: NavState,
   zones: Zone[],
   columns: number,
+  vimMode: boolean = false,
 ): { state: NavState; action: NavAction } {
   if (zones.length === 0) {
     return { state, action: { type: 'none' } };
+  }
+
+  // Vim mode key mapping
+  if (vimMode && !state.searchActive) {
+    switch (key) {
+      case 'h': key = 'ArrowLeft'; break;
+      case 'j': key = 'ArrowDown'; break;
+      case 'k': key = 'ArrowUp'; break;
+      case 'l': key = 'ArrowRight'; break;
+      case 'G': {
+        // Jump to last item in last zone
+        const lastZone = zones[zones.length - 1];
+        return {
+          state: { ...state, zoneIndex: zones.length - 1, itemIndex: lastZone.itemCount - 1 },
+          action: { type: 'none' },
+        };
+      }
+      case 'g':
+        return { state, action: { type: 'pendingG' } };
+      case 'gg': {
+        // Jump to first item in first zone
+        return {
+          state: { ...state, zoneIndex: 0, itemIndex: 0 },
+          action: { type: 'none' },
+        };
+      }
+    }
   }
 
   // Clamp zone/item indices to valid range

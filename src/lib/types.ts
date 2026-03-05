@@ -17,8 +17,17 @@ export interface BookmarkFolder {
   bookmarkCount: number;
 }
 
+export interface BackgroundConfig {
+  type: 'solid' | 'url' | 'file';
+  value: string;
+}
+
 export interface Settings {
   columns: number;
+  vimMode: boolean;
+  verticalOffset: number;
+  background: BackgroundConfig;
+  folderColors: Record<string, string>;
 }
 
 export interface AppState {
@@ -28,6 +37,10 @@ export interface AppState {
 
 export const DEFAULT_SETTINGS: Settings = {
   columns: 6,
+  vimMode: false,
+  verticalOffset: 40,
+  background: { type: 'solid', value: '#1a1a2e' },
+  folderColors: {},
 };
 
 export const DEFAULT_STATE: AppState = {
