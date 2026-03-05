@@ -1,23 +1,30 @@
 <script lang="ts">
   import { getBookmarkFolders, getFolderBookmarks } from '../lib/bookmarks';
-  import type { BookmarkFolder, BookmarkSite, PinnedSite } from '../lib/types';
+  import type { BookmarkFolder, BookmarkSite, PinnedSite, Settings } from '../lib/types';
+  import { DEFAULT_SETTINGS } from '../lib/types';
   import type { Zone } from '../lib/keyboard';
   import { createInitialNav, handleNavKey } from '../lib/keyboard';
-  import { loadState, pinSite, unpinSite } from '../lib/storage';
+  import { loadState, pinSite, unpinSite, debouncedSaveState, saveState } from '../lib/storage';
   import SearchBar from '../components/SearchBar.svelte';
   import WebSearchBar from '../components/WebSearchBar.svelte';
   import PinnedGrid from '../components/PinnedGrid.svelte';
   import FolderIcon from '../components/FolderIcon.svelte';
   import BookmarkList from '../components/BookmarkList.svelte';
+  import SettingsButton from '../components/SettingsButton.svelte';
+  import SettingsSidebar from '../components/SettingsSidebar.svelte';
 
   // --- State ---
   let folders: BookmarkFolder[] = $state([]);
   let pinnedSites: PinnedSite[] = $state([]);
+  let settings: Settings = $state({ ...DEFAULT_SETTINGS });
   let nav = $state(createInitialNav());
-  let columns = $state(6);
+  let columns = $derived(settings.columns);
   let searchQuery = $state('');
   let searchBar: SearchBar | undefined = $state();
   let webSearchBar: WebSearchBar | undefined = $state();
+  let settingsOpen = $state(false);
+  let pendingG = $state(false);
+  let pendingGTimer: ReturnType<typeof setTimeout> | undefined;
 
   // Folder navigation state
   let selectedFolder: BookmarkFolder | null = $state(null);
@@ -71,7 +78,7 @@
   let effectiveColumns: number = $derived(selectedFolder ? 1 : columns);
 
   // Pre-compute zone indices to avoid repeated findIndex in templates
-  let bookmarkZoneIndex: number = $derived(bookmarkZoneIndex);
+  let bookmarkZoneIndex: number = $derived(zones.findIndex((z) => z.id === '__bookmarks__'));
   let folderZoneIndex: number = $derived(zones.findIndex((z) => z.id === '__folders__'));
   let focusedFolderIdx: number = $derived(
     folderZoneIndex === -1 || nav.zoneIndex !== folderZoneIndex ? -1 : nav.itemIndex,
@@ -93,15 +100,39 @@
       }
     };
 
+    // Sync pinned sites when bookmarks change (T009)
+    const handleChanged = (id: string, changeInfo: { title: string; url?: string }) => {
+      reload();
+      const idx = pinnedSites.findIndex((p) => p.id === id);
+      if (idx === -1) return;
+      const updated = [...pinnedSites];
+      if (changeInfo.title !== undefined) updated[idx] = { ...updated[idx], name: changeInfo.title };
+      if (changeInfo.url !== undefined) updated[idx] = { ...updated[idx], url: changeInfo.url };
+      pinnedSites = updated;
+      saveState({ pinnedSites: [...pinnedSites], settings: { ...settings } });
+    };
+
+    // Remove pinned site when bookmark is deleted (T010)
+    const handleRemoved = (id: string) => {
+      reload();
+      const idx = pinnedSites.findIndex((p) => p.id === id);
+      if (idx === -1) return;
+      const remaining = pinnedSites
+        .filter((p) => p.id !== id)
+        .map((p, i) => ({ ...p, order: i }));
+      pinnedSites = remaining;
+      saveState({ pinnedSites: [...pinnedSites], settings: { ...settings } });
+    };
+
     chrome.bookmarks.onCreated.addListener(reload);
-    chrome.bookmarks.onRemoved.addListener(reload);
-    chrome.bookmarks.onChanged.addListener(reload);
+    chrome.bookmarks.onRemoved.addListener(handleRemoved);
+    chrome.bookmarks.onChanged.addListener(handleChanged);
     chrome.bookmarks.onMoved.addListener(reload);
 
     return () => {
       chrome.bookmarks.onCreated.removeListener(reload);
-      chrome.bookmarks.onRemoved.removeListener(reload);
-      chrome.bookmarks.onChanged.removeListener(reload);
+      chrome.bookmarks.onRemoved.removeListener(handleRemoved);
+      chrome.bookmarks.onChanged.removeListener(handleChanged);
       chrome.bookmarks.onMoved.removeListener(reload);
     };
   });
@@ -113,7 +144,7 @@
         getBookmarkFolders(),
       ]);
       pinnedSites = state.pinnedSites.sort((a, b) => a.order - b.order);
-      columns = state.settings.columns;
+      settings = state.settings;
       folders = bookmarkFolders;
     } catch {
       folders = [];
@@ -199,6 +230,21 @@
     return undefined; // Folders don't have URLs
   }
 
+  function openSettings() {
+    settingsOpen = true;
+    deactivateSearch();
+  }
+
+  function closeSettings() {
+    settingsOpen = false;
+  }
+
+  function handleSettingsChange(newSettings: Settings) {
+    settings = newSettings;
+    const state = { pinnedSites: [...pinnedSites], settings: { ...settings } };
+    debouncedSaveState(state, folders.map((f) => f.id));
+  }
+
   function handleKeydown(e: KeyboardEvent) {
     // Cmd+K (Mac) / Ctrl+K (Win) → focus Google search
     if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
@@ -216,17 +262,50 @@
       return;
     }
 
+    // Settings sidebar: Escape to close
+    if (settingsOpen) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeSettings();
+      }
+      return; // Block all other keys while sidebar is open
+    }
+
     let key = e.key;
     if (key === 'Tab' && e.shiftKey) key = 'ShiftTab';
 
+    const vimKeys = ['h', 'j', 'k', 'l', 'g', 'G'];
+    const isVimKey = settings.vimMode && !nav.searchActive && vimKeys.includes(key);
+
+    // Vim mode: handle pending g state
+    if (pendingG && settings.vimMode && !nav.searchActive) {
+      clearTimeout(pendingGTimer);
+      pendingG = false;
+      if (key === 'g') {
+        // gg: jump to first
+        e.preventDefault();
+        const result = handleNavKey('gg', nav, zones, effectiveColumns, true);
+        nav = result.state;
+        return;
+      }
+      // Not g: discard pending, fall through to process this key
+    }
+
     // Search activation: `/` or printable char when not in search
     if (!nav.searchActive) {
+      // `,` opens settings
+      if (key === ',') {
+        e.preventDefault();
+        openSettings();
+        return;
+      }
       if (key === '/') {
         e.preventDefault();
         activateSearch();
         return;
       }
-      if (key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      // Vim keys should navigate, not activate search
+      if (!isVimKey && key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault();
         activateSearch(key);
         return;
@@ -268,12 +347,16 @@
       return;
     }
 
-    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'ShiftTab'].includes(key)) {
+    const navKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'ShiftTab'];
+    if (navKeys.includes(key) || isVimKey) {
       e.preventDefault();
-      const result = handleNavKey(key, nav, zones, effectiveColumns);
+      const result = handleNavKey(key, nav, zones, effectiveColumns, settings.vimMode);
       nav = result.state;
       if (result.action.type === 'deactivateSearch') {
         deactivateSearch();
+      } else if (result.action.type === 'pendingG') {
+        pendingG = true;
+        pendingGTimer = setTimeout(() => { pendingG = false; }, 500);
       }
       return;
     }
@@ -282,7 +365,13 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-<main>
+<main
+  class="main-content"
+  class:has-bg-image={settings.background.type !== 'solid'}
+  style:background-color={settings.background.type === 'solid' ? settings.background.value : undefined}
+  style:background-image={settings.background.type !== 'solid' && settings.background.value ? `url(${settings.background.value})` : undefined}
+  style:padding-top="{settings.verticalOffset}px"
+>
   <div class="container">
     <WebSearchBar bind:this={webSearchBar} />
 
@@ -322,6 +411,7 @@
                   <FolderIcon
                     {folder}
                     focused={!nav.searchActive && focusedFolderIdx === i}
+                    color={settings.folderColors[folder.id]}
                     onclick={() => openFolder(folder)}
                   />
                 {/each}
@@ -370,6 +460,15 @@
       </div>
     {/if}
 
+    <SettingsButton onclick={openSettings} />
+    <SettingsSidebar
+      open={settingsOpen}
+      {settings}
+      {folders}
+      onSettingsChange={handleSettingsChange}
+      onClose={closeSettings}
+    />
+
     <footer class="hint-bar">
       <span><kbd>&#8592;&#8593;&#8595;&#8594;</kbd> Navigate</span>
       <span><kbd>Enter</kbd> {selectedFolder ? 'Open' : 'Open folder'}</span>
@@ -392,11 +491,29 @@
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
 
-  main {
+  main.main-content {
     display: flex;
     flex-direction: column;
     min-height: 100vh;
     padding: 2rem 1.5rem;
+    position: relative;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+
+  main.has-bg-image::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  main.has-bg-image > :global(*) {
+    position: relative;
+    z-index: 1;
   }
 
   .container {
