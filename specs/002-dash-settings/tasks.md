@@ -19,8 +19,8 @@
 
 **Purpose**: Extend type system and create shared constants for all features
 
-- [ ] T001 Extend Settings and add BackgroundConfig interfaces in src/lib/types.ts — add `vimMode: boolean`, `verticalOffset: number`, `background: BackgroundConfig`, `folderColors: Record<string, string>` to Settings; add `BackgroundConfig` type; update `DEFAULT_SETTINGS` and `DEFAULT_STATE` with new defaults per data-model.md
-- [ ] T002 [P] Create color palette and default constants in src/lib/constants.ts — export `FOLDER_COLOR_PALETTE` (20-color array), `DEFAULT_BACKGROUND` config, `VERTICAL_OFFSET_RANGE` (min: 0, max: 120), and `VIM_KEY_TIMEOUT` (500ms)
+- [x] T001 Extend Settings and add BackgroundConfig interfaces in src/lib/types.ts — add `vimMode: boolean`, `verticalOffset: number`, `background: BackgroundConfig`, `folderColors: Record<string, string>` to Settings; add `BackgroundConfig` type; update `DEFAULT_SETTINGS` and `DEFAULT_STATE` with new defaults per data-model.md
+- [x] T002 [P] Create color palette and default constants in src/lib/constants.ts — export `FOLDER_COLOR_PALETTE` (20-color array), `DEFAULT_BACKGROUND` config, `VERTICAL_OFFSET_RANGE` (min: 0, max: 120), and `VIM_KEY_TIMEOUT` (500ms)
 
 ---
 
@@ -30,8 +30,8 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T003 Extend loadState() in src/lib/storage.ts — merge stored partial settings with new defaults; validate each new field (`vimMode` as boolean, `verticalOffset` 0–120, `background.type` as literal union, `folderColors` as Record); invalid/missing fields fall back to defaults per contracts/storage-schema.md
-- [ ] T004 Add debounced save utility in src/lib/storage.ts — create `debouncedSaveState(state, folderIds?)` that debounces with 300ms delay; on save, clean up `folderColors` entries whose keys don't match any ID in the provided `folderIds` array (orphan cleanup per research.md R4)
+- [x] T003 Extend loadState() in src/lib/storage.ts — merge stored partial settings with new defaults; validate each new field (`vimMode` as boolean, `verticalOffset` 0–120, `background.type` as literal union, `folderColors` as Record); invalid/missing fields fall back to defaults per contracts/storage-schema.md
+- [x] T004 Add debounced save utility in src/lib/storage.ts — create `debouncedSaveState(state, folderIds?)` that debounces with 300ms delay; on save, clean up `folderColors` entries whose keys don't match any ID in the provided `folderIds` array (orphan cleanup per research.md R4)
 
 **Checkpoint**: Storage layer ready — all features can now read/write extended settings
 
@@ -45,10 +45,10 @@
 
 ### Implementation for User Story 1
 
-- [ ] T005 [P] [US1] Create RangeSlider.svelte in src/components/RangeSlider.svelte — reusable slider with props: `label: string`, `value: number`, `min: number`, `max: number`, `unit: string`; emits `onchange(value)` callback; displays current value with unit; uses Svelte 5 `$props()` rune
-- [ ] T006 [P] [US1] Create SettingsButton.svelte in src/components/SettingsButton.svelte — gear icon (⚙) button positioned fixed bottom-right; emits `onclick` callback; subtle styling matching dark theme
-- [ ] T007 [US1] Create SettingsSidebar.svelte in src/components/SettingsSidebar.svelte — 320px wide right-sliding panel with semi-transparent dark background; props: `open: boolean`, `settings: Settings`, `folders: BookmarkFolder[]`, `onSettingsChange(settings)`, `onClose()`; General section with Columns slider (RangeSlider, 1–12) and Top Offset slider (RangeSlider, 0–120px); ✕ close button; slide-in/out CSS animation
-- [ ] T008 [US1] Integrate settings sidebar into src/newtab/App.svelte — add `settingsOpen: boolean` state; render SettingsButton and SettingsSidebar; handle `,` key to open (when search not active); handle Escape to close; handle backdrop click to close; disable keyboard navigation (`handleNavKey`) while sidebar is open (FR-018); deactivate search when sidebar opens; on settings change: update local state immediately (live preview) + call debouncedSaveState
+- [x] T005 [P] [US1] Create RangeSlider.svelte in src/components/RangeSlider.svelte — reusable slider with props: `label: string`, `value: number`, `min: number`, `max: number`, `unit: string`; emits `onchange(value)` callback; displays current value with unit; uses Svelte 5 `$props()` rune
+- [x] T006 [P] [US1] Create SettingsButton.svelte in src/components/SettingsButton.svelte — gear icon (⚙) button positioned fixed bottom-right; emits `onclick` callback; subtle styling matching dark theme
+- [x] T007 [US1] Create SettingsSidebar.svelte in src/components/SettingsSidebar.svelte — 320px wide right-sliding panel with semi-transparent dark background; props: `open: boolean`, `settings: Settings`, `folders: BookmarkFolder[]`, `onSettingsChange(settings)`, `onClose()`; General section with Columns slider (RangeSlider, 1–12) and Top Offset slider (RangeSlider, 0–120px); ✕ close button; slide-in/out CSS animation
+- [x] T008 [US1] Integrate settings sidebar into src/newtab/App.svelte — add `settingsOpen: boolean` state; render SettingsButton and SettingsSidebar; handle `,` key to open (when search not active); handle Escape to close; handle backdrop click to close; disable keyboard navigation (`handleNavKey`) while sidebar is open (FR-018); deactivate search when sidebar opens; on settings change: update local state immediately (live preview) + call debouncedSaveState
 
 **Checkpoint**: Settings sidebar opens/closes with Columns slider working. MVP delivered.
 
@@ -62,8 +62,8 @@
 
 ### Implementation for User Story 2
 
-- [ ] T009 [US2] Extend onChanged bookmark listener in src/newtab/App.svelte — in existing `chrome.bookmarks.onChanged` handler, check if changed bookmark ID matches any pinned site; if match, update `name` from `changeInfo.title` and `url` from `changeInfo.url`; persist updated state via saveState
-- [ ] T010 [US2] Extend onRemoved bookmark listener in src/newtab/App.svelte — in existing `chrome.bookmarks.onRemoved` handler, check if removed ID matches any pinned site; if match, filter out the pinned site and reassign `order` values as 0, 1, 2, ...N-1 based on current sort; persist via saveState
+- [x] T009 [US2] Extend onChanged bookmark listener in src/newtab/App.svelte — in existing `chrome.bookmarks.onChanged` handler, check if changed bookmark ID matches any pinned site; if match, update `name` from `changeInfo.title` and `url` from `changeInfo.url`; persist updated state via saveState
+- [x] T010 [US2] Extend onRemoved bookmark listener in src/newtab/App.svelte — in existing `chrome.bookmarks.onRemoved` handler, check if removed ID matches any pinned site; if match, filter out the pinned site and reassign `order` values as 0, 1, 2, ...N-1 based on current sort; persist via saveState
 
 **Checkpoint**: Bookmark sync fully functional. Pin/rename/delete sync works independently.
 
@@ -77,9 +77,9 @@
 
 ### Implementation for User Story 3
 
-- [ ] T011 [P] [US3] Create BackgroundPicker.svelte in src/components/BackgroundPicker.svelte — radio group for type selection (Solid/URL/File); conditional inputs: Solid shows hex color input + 6 preset color buttons; URL shows text input; File shows file picker (accept jpg/png/webp) with thumbnail preview; 5MB file size warning (FR-011); "Reset to default" button; emits `onchange(BackgroundConfig)` callback; uses FileReader.readAsDataURL() for file → base64 conversion
-- [ ] T012 [US3] Add Background section to SettingsSidebar in src/components/SettingsSidebar.svelte — add BackgroundPicker component in a "Background" section between General and Folder Colors; pass `settings.background` as value; on change, emit updated settings
-- [ ] T013 [US3] Apply background styling in src/newtab/App.svelte — based on `settings.background.type`: solid → set `background-color` on main container; url/file → set `background-image` with `cover` sizing + CSS `::after` pseudo-element overlay `rgba(0,0,0,0.5)` for text readability (per research.md R5); use `position: relative` on main container for overlay positioning
+- [x] T011 [P] [US3] Create BackgroundPicker.svelte in src/components/BackgroundPicker.svelte — radio group for type selection (Solid/URL/File); conditional inputs: Solid shows hex color input + 6 preset color buttons; URL shows text input; File shows file picker (accept jpg/png/webp) with thumbnail preview; 5MB file size warning (FR-011); "Reset to default" button; emits `onchange(BackgroundConfig)` callback; uses FileReader.readAsDataURL() for file → base64 conversion
+- [x] T012 [US3] Add Background section to SettingsSidebar in src/components/SettingsSidebar.svelte — add BackgroundPicker component in a "Background" section between General and Folder Colors; pass `settings.background` as value; on change, emit updated settings
+- [x] T013 [US3] Apply background styling in src/newtab/App.svelte — based on `settings.background.type`: solid → set `background-color` on main container; url/file → set `background-image` with `cover` sizing + CSS `::after` pseudo-element overlay `rgba(0,0,0,0.5)` for text readability (per research.md R5); use `position: relative` on main container for overlay positioning
 
 **Checkpoint**: Background customization complete. All three modes (solid/URL/file) work with persistence.
 
@@ -93,10 +93,10 @@
 
 ### Implementation for User Story 4
 
-- [ ] T014 [P] [US4] Create ColorPalette.svelte in src/components/ColorPalette.svelte — reusable 4×5 color grid popover; props: `colors: string[]` (from FOLDER_COLOR_PALETTE constant), `selected: string | undefined`, `onselect(color: string)`; renders as positioned popover on click; closes on selection or outside click
-- [ ] T015 [US4] Add Folder Colors section to SettingsSidebar in src/components/SettingsSidebar.svelte — list all folders from `folders` prop; each row: folder emoji (📁), folder title, color dot button with current color (from `settings.folderColors[folder.id]` or default gray); clicking dot opens ColorPalette popover; on color select, update `settings.folderColors[folder.id]`; show "No folders found" if folders list is empty
-- [ ] T016 [US4] Modify FolderIcon.svelte in src/components/FolderIcon.svelte — add optional `color: string | undefined` prop; when provided, apply as background-color on the folder icon container (replacing default gray); keep existing props/behavior unchanged
-- [ ] T017 [US4] Pass folder colors from App.svelte to FolderIcon in src/newtab/App.svelte — when rendering folder icons, look up `settings.folderColors[folder.id]` and pass as `color` prop to each FolderIcon component
+- [x] T014 [P] [US4] Create ColorPalette.svelte in src/components/ColorPalette.svelte — reusable 4×5 color grid popover; props: `colors: string[]` (from FOLDER_COLOR_PALETTE constant), `selected: string | undefined`, `onselect(color: string)`; renders as positioned popover on click; closes on selection or outside click
+- [x] T015 [US4] Add Folder Colors section to SettingsSidebar in src/components/SettingsSidebar.svelte — list all folders from `folders` prop; each row: folder emoji (📁), folder title, color dot button with current color (from `settings.folderColors[folder.id]` or default gray); clicking dot opens ColorPalette popover; on color select, update `settings.folderColors[folder.id]`; show "No folders found" if folders list is empty
+- [x] T016 [US4] Modify FolderIcon.svelte in src/components/FolderIcon.svelte — add optional `color: string | undefined` prop; when provided, apply as background-color on the folder icon container (replacing default gray); keep existing props/behavior unchanged
+- [x] T017 [US4] Pass folder colors from App.svelte to FolderIcon in src/newtab/App.svelte — when rendering folder icons, look up `settings.folderColors[folder.id]` and pass as `color` prop to each FolderIcon component
 
 **Checkpoint**: Folder colors complete. Colors assigned in settings appear on dashboard folder icons.
 
@@ -110,7 +110,7 @@
 
 ### Implementation for User Story 5
 
-- [ ] T018 [US5] Apply verticalOffset to main content in src/newtab/App.svelte — read `settings.verticalOffset` and apply as `padding-top` style on the main content container; value already persisted by settings sidebar (T008); default 40px visible immediately on load
+- [x] T018 [US5] Apply verticalOffset to main content in src/newtab/App.svelte — read `settings.verticalOffset` and apply as `padding-top` style on the main content container; value already persisted by settings sidebar (T008); default 40px visible immediately on load
 
 **Checkpoint**: Layout offset works. Single-task story complete.
 
@@ -124,8 +124,8 @@
 
 ### Implementation for User Story 6
 
-- [ ] T019 [US6] Extend keyboard.ts with vim mode support in src/lib/keyboard.ts — add `vimMode: boolean` and `pendingG: boolean` parameters to `handleNavKey` function; when vimMode enabled and not in search: map h→ArrowLeft, j→ArrowDown, k→ArrowUp, l→ArrowRight; handle G (shift+g) as jump-to-last (itemIndex = last item in last zone); return new action type `'pendingG'` when first `g` is pressed; handle second `g` within same call context as jump-to-first (itemIndex=0, zoneIndex=0)
-- [ ] T020 [US6] Integrate vim mode into App.svelte key handler in src/newtab/App.svelte — pass `settings.vimMode` to handleNavKey; manage g-key pending state: on `'pendingG'` action, set a 500ms timeout; if second `g` arrives before timeout, execute jump-to-first; if different key or timeout, clear pending state and process normally; disable vim keys when settings sidebar is open (FR-016); add Vim Mode toggle to General section of settings sidebar
+- [x] T019 [US6] Extend keyboard.ts with vim mode support in src/lib/keyboard.ts — add `vimMode: boolean` and `pendingG: boolean` parameters to `handleNavKey` function; when vimMode enabled and not in search: map h→ArrowLeft, j→ArrowDown, k→ArrowUp, l→ArrowRight; handle G (shift+g) as jump-to-last (itemIndex = last item in last zone); return new action type `'pendingG'` when first `g` is pressed; handle second `g` within same call context as jump-to-first (itemIndex=0, zoneIndex=0)
+- [x] T020 [US6] Integrate vim mode into App.svelte key handler in src/newtab/App.svelte — pass `settings.vimMode` to handleNavKey; manage g-key pending state: on `'pendingG'` action, set a 500ms timeout; if second `g` arrives before timeout, execute jump-to-first; if different key or timeout, clear pending state and process normally; disable vim keys when settings sidebar is open (FR-016); add Vim Mode toggle to General section of settings sidebar
 
 **Checkpoint**: Vim mode complete. All 6 keys (h, j, k, l, gg, G) work correctly with proper disable contexts.
 
@@ -135,8 +135,8 @@
 
 **Purpose**: Verification and quality checks across all features
 
-- [ ] T021 Run type checking with `npm run check` — verify no TypeScript errors across all modified and new files
-- [ ] T022 Build verification with `npm run build` — verify clean production build to dist/
+- [x] T021 Run type checking with `npm run check` — verify no TypeScript errors across all modified and new files
+- [x] T022 Build verification with `npm run build` — verify clean production build to dist/
 - [ ] T023 Run quickstart.md manual validation — follow all test scenarios in specs/002-dash-settings/quickstart.md; verify each feature works in Chrome
 
 ---

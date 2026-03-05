@@ -4,10 +4,11 @@
   interface Props {
     folder: BookmarkFolder;
     focused?: boolean;
+    color?: string;
     onclick?: () => void;
   }
 
-  let { folder, focused = false, onclick }: Props = $props();
+  let { folder, focused = false, color, onclick }: Props = $props();
 </script>
 
 <button
@@ -16,7 +17,7 @@
   {onclick}
   aria-label="{folder.title} — {folder.bookmarkCount} bookmarks"
 >
-  <span class="folder-emoji">📁</span>
+  <span class="folder-emoji" style={color ? `background-color: ${color}; border-radius: 6px; padding: 2px 4px;` : ''}>📁</span>
   <span class="folder-name">{folder.title}</span>
   <span class="folder-count">{folder.bookmarkCount}</span>
 </button>
