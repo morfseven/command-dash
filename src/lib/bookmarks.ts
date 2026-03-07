@@ -71,6 +71,21 @@ export async function getFolderBookmarks(folderId: string): Promise<BookmarkSite
     }));
 }
 
+/**
+ * Searches all bookmarks across all folders using Chrome's built-in search API.
+ */
+export async function searchAllBookmarks(query: string): Promise<BookmarkSite[]> {
+  if (!query.trim()) return [];
+  const results = await chrome.bookmarks.search(query);
+  return results
+    .filter((c) => !!c.url)
+    .map((c) => ({
+      id: c.id,
+      url: c.url!,
+      title: c.title || extractHostname(c.url!),
+    }));
+}
+
 export function extractHostname(url: string): string {
   try {
     return new URL(url).hostname;

@@ -21,6 +21,7 @@ export type NavAction =
   | { type: 'navigate'; url: string }
   | { type: 'activateSearch' }
   | { type: 'deactivateSearch' }
+  | { type: 'focusResults' }
   | { type: 'pendingG' }
   | { type: 'none' };
 
@@ -138,7 +139,7 @@ export function handleNavKey(
       if (state.searchActive) {
         return {
           state: { ...state, searchActive: false, zoneIndex: 0, itemIndex: 0 },
-          action: { type: 'deactivateSearch' },
+          action: { type: 'focusResults' },
         };
       }
       const nextZone = (zoneIndex + 1) % zones.length;
@@ -152,7 +153,7 @@ export function handleNavKey(
       if (state.searchActive) {
         return {
           state: { ...state, searchActive: false, zoneIndex: 0, itemIndex: 0 },
-          action: { type: 'deactivateSearch' },
+          action: { type: 'focusResults' },
         };
       }
       const prevZone = (zoneIndex - 1 + zones.length) % zones.length;

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getBookmarkFolders, getFolderBookmarks } from '../lib/bookmarks';
+  import { getBookmarkFolders, getFolderBookmarks, searchAllBookmarks } from '../lib/bookmarks';
   import type { BookmarkFolder, BookmarkSite, PinnedSite, Settings } from '../lib/types';
   import { DEFAULT_SETTINGS } from '../lib/types';
   import type { Zone } from '../lib/keyboard';
@@ -30,6 +30,9 @@
   let selectedFolder: BookmarkFolder | null = $state(null);
   let folderBookmarks: BookmarkSite[] = $state([]);
 
+  // Global search results (across all folders)
+  let globalSearchResults: BookmarkSite[] = $state([]);
+
   // --- Derived ---
   let filteredPinned: PinnedSite[] = $derived.by(() => {
     if (!searchQuery) return pinnedSites;
@@ -47,12 +50,17 @@
   });
 
   let filteredBookmarks: BookmarkSite[] = $derived.by(() => {
-    if (!selectedFolder) return [];
-    if (!searchQuery) return folderBookmarks;
-    const q = searchQuery.toLowerCase();
-    return folderBookmarks.filter(
-      (b) => b.title.toLowerCase().includes(q) || b.url.toLowerCase().includes(q),
-    );
+    if (selectedFolder) {
+      if (!searchQuery) return folderBookmarks;
+      const q = searchQuery.toLowerCase();
+      return folderBookmarks.filter(
+        (b) => b.title.toLowerCase().includes(q) || b.url.toLowerCase().includes(q),
+      );
+    }
+    // Not in a folder: show global search results (excluding already-pinned items)
+    if (!searchQuery) return [];
+    const pinnedIds = new Set(pinnedSites.map((p) => p.id));
+    return globalSearchResults.filter((b) => !pinnedIds.has(b.id));
   });
 
   let zones: Zone[] = $derived.by(() => {
@@ -66,9 +74,13 @@
         z.push({ id: '__bookmarks__', itemCount: filteredBookmarks.length });
       }
     } else {
-      // Folder grid mode
-      if (filteredFolders.length > 0) {
+      // Folder grid mode (hidden during search)
+      if (!searchQuery && filteredFolders.length > 0) {
         z.push({ id: '__folders__', itemCount: filteredFolders.length });
+      }
+      // Global search results
+      if (searchQuery && filteredBookmarks.length > 0) {
+        z.push({ id: '__bookmarks__', itemCount: filteredBookmarks.length });
       }
     }
     return z;
@@ -83,6 +95,21 @@
   let focusedFolderIdx: number = $derived(
     folderZoneIndex === -1 || nav.zoneIndex !== folderZoneIndex ? -1 : nav.itemIndex,
   );
+
+  // Search all bookmarks when query changes (not inside a folder)
+  $effect(() => {
+    const q = searchQuery;
+    if (!q || selectedFolder) {
+      globalSearchResults = [];
+      return;
+    }
+    searchAllBookmarks(q).then((results) => {
+      // Only update if query hasn't changed
+      if (searchQuery === q) {
+        globalSearchResults = results;
+      }
+    });
+  });
 
   // --- Load data ---
   $effect(() => {
@@ -206,6 +233,13 @@
 
   function deactivateSearch() {
     searchQuery = '';
+    globalSearchResults = [];
+    nav = { ...nav, searchActive: false, zoneIndex: 0, itemIndex: 0 };
+    searchBar?.blur();
+  }
+
+  /** Exit search input but keep query — focus moves to results */
+  function focusSearchResults() {
     nav = { ...nav, searchActive: false, zoneIndex: 0, itemIndex: 0 };
     searchBar?.blur();
   }
@@ -299,6 +333,12 @@
         openSettings();
         return;
       }
+      // `p` jumps to pinned zone
+      if (key === 'p' && filteredPinned.length > 0) {
+        e.preventDefault();
+        nav = { ...nav, searchActive: false, zoneIndex: 0, itemIndex: 0 };
+        return;
+      }
       if (key === '/') {
         e.preventDefault();
         activateSearch();
@@ -312,9 +352,13 @@
       }
     }
 
-    // Enter: open URL or open folder
+    // Enter: in search mode → move focus to results; otherwise open URL/folder
     if (key === 'Enter') {
       e.preventDefault();
+      if (nav.searchActive) {
+        focusSearchResults();
+        return;
+      }
       const url = getUrlForCurrentFocus();
       if (url) {
         navigate(url);
@@ -328,10 +372,10 @@
       return;
     }
 
-    // Escape: go back to folders if in bookmark view, or clear search
+    // Escape: clear search → go back to folders → no-op
     if (key === 'Escape') {
       e.preventDefault();
-      if (nav.searchActive) {
+      if (nav.searchActive || searchQuery) {
         deactivateSearch();
         return;
       }
@@ -354,6 +398,8 @@
       nav = result.state;
       if (result.action.type === 'deactivateSearch') {
         deactivateSearch();
+      } else if (result.action.type === 'focusResults') {
+        focusSearchResults();
       } else if (result.action.type === 'pendingG') {
         pendingG = true;
         pendingGTimer = setTimeout(() => { pendingG = false; }, 500);
@@ -402,25 +448,51 @@
         />
 
         {#if !selectedFolder}
-          <!-- Folder grid view -->
-          {#if filteredFolders.length > 0}
-            <section class="folder-section">
-              <h2 class="section-title">Folders</h2>
-              <div class="folder-grid">
-                {#each filteredFolders as folder, i}
-                  <FolderIcon
-                    {folder}
-                    focused={!nav.searchActive && focusedFolderIdx === i}
-                    color={settings.folderColors[folder.id]}
-                    onclick={() => openFolder(folder)}
-                  />
-                {/each}
+          {#if searchQuery}
+            <!-- Global search results -->
+            {#if filteredBookmarks.length > 0}
+              <section class="bookmark-section">
+                <h2 class="section-title">Search results</h2>
+                <BookmarkList
+                  bookmarks={filteredBookmarks}
+                  focusedIndex={
+                    !nav.searchActive &&
+                    bookmarkZoneIndex === nav.zoneIndex
+                      ? nav.itemIndex
+                      : -1
+                  }
+                  active={
+                    !nav.searchActive &&
+                    bookmarkZoneIndex === nav.zoneIndex
+                  }
+                  onNavigate={navigate}
+                  onTogglePin={(site) =>
+                    handleTogglePin({ id: site.id, url: site.url, name: site.title })
+                  }
+                />
+              </section>
+            {:else}
+              <div class="empty-state">
+                <p>No bookmarks match "{searchQuery}"</p>
               </div>
-            </section>
-          {:else if searchQuery}
-            <div class="empty-state">
-              <p>No folders match "{searchQuery}"</p>
-            </div>
+            {/if}
+          {:else}
+            <!-- Folder grid view -->
+            {#if filteredFolders.length > 0}
+              <section class="folder-section">
+                <h2 class="section-title">Folders</h2>
+                <div class="folder-grid">
+                  {#each filteredFolders as folder, i}
+                    <FolderIcon
+                      {folder}
+                      focused={!nav.searchActive && focusedFolderIdx === i}
+                      color={settings.folderColors[folder.id]}
+                      onclick={() => openFolder(folder)}
+                    />
+                  {/each}
+                </div>
+              </section>
+            {/if}
           {/if}
         {:else}
           <!-- Bookmark list view -->
@@ -475,6 +547,7 @@
       {#if selectedFolder}
         <span><kbd>Esc</kbd> Back</span>
       {/if}
+      <span><kbd>p</kbd> Pinned</span>
       <span><kbd>/</kbd> Search</span>
       <span><kbd>⌘K</kbd> Google</span>
       <span><kbd>Right-click</kbd> Pin/Unpin</span>
