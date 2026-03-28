@@ -4,7 +4,7 @@
   import { DEFAULT_SETTINGS } from '../lib/types';
   import type { Zone } from '../lib/keyboard';
   import { createInitialNav, handleNavKey } from '../lib/keyboard';
-  import { loadState, pinSite, unpinSite, debouncedSaveState, saveState } from '../lib/storage';
+  import { loadState, pinSite, unpinSite, reorderPinnedSites, debouncedSaveState, saveState } from '../lib/storage';
   import SearchBar from '../components/SearchBar.svelte';
   import WebSearchBar from '../components/WebSearchBar.svelte';
   import PinnedGrid from '../components/PinnedGrid.svelte';
@@ -223,6 +223,14 @@
     }
     const state = await loadState();
     pinnedSites = state.pinnedSites.sort((a, b) => a.order - b.order);
+  }
+
+  async function handleReorder(fromIndex: number, toIndex: number) {
+    const reordered = [...pinnedSites];
+    const [moved] = reordered.splice(fromIndex, 1);
+    reordered.splice(toIndex, 0, moved);
+    pinnedSites = reordered;
+    await reorderPinnedSites(reordered.map((s) => s.id));
   }
 
   function activateSearch(initialChar?: string) {
@@ -445,6 +453,7 @@
           active={nav.zoneIndex === 0 && filteredPinned.length > 0 && !nav.searchActive}
           onNavigate={navigate}
           onTogglePin={(site) => handleTogglePin(site)}
+          onReorder={searchQuery ? undefined : handleReorder}
         />
 
         {#if !selectedFolder}

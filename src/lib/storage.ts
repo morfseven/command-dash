@@ -88,3 +88,15 @@ export async function unpinSite(id: string): Promise<void> {
   state.pinnedSites = state.pinnedSites.filter((s) => s.id !== id);
   await saveState(state);
 }
+
+export async function reorderPinnedSites(orderedIds: string[]): Promise<void> {
+  const state = await loadState();
+  const siteMap = new Map(state.pinnedSites.map((s) => [s.id, s]));
+  state.pinnedSites = orderedIds
+    .map((id, i) => {
+      const site = siteMap.get(id);
+      return site ? { ...site, order: i } : undefined;
+    })
+    .filter((s): s is PinnedSite => s !== undefined);
+  await saveState(state);
+}
