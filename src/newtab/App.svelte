@@ -490,7 +490,7 @@
             {#if filteredFolders.length > 0}
               <section class="folder-section">
                 <h2 class="section-title">Folders</h2>
-                <div class="folder-grid">
+                <div class="folder-grid" style="grid-template-columns: repeat({columns}, minmax(0, 1fr))">
                   {#each filteredFolders as folder, i}
                     <FolderIcon
                       {folder}
@@ -646,7 +646,6 @@
 
   .folder-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
     gap: 4px;
   }
 

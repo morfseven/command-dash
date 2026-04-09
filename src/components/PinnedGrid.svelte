@@ -50,7 +50,7 @@
 {#if sites.length > 0}
   <section class="pinned-grid">
     <h2 class="section-title">Pinned</h2>
-    <div class="grid" role="list" style="grid-template-columns: repeat({columns}, 1fr)">
+    <div class="grid" role="list" style="grid-template-columns: repeat({columns}, minmax(0, 1fr))">
       {#each sites as site, i (site.id)}
         <div
           class="drag-item"

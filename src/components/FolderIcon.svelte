@@ -36,6 +36,8 @@
     color: #ccc;
     transition: border-color 0.15s, background-color 0.15s;
     min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
   }
 
   .folder-icon:hover {
